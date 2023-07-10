@@ -5,12 +5,7 @@ from boxmot.utils import BOXMOT
 
 
 def get_tracker_config(tracker_type):
-    tracking_config = \
-        BOXMOT /\
-        tracker_type /\
-        'configs' /\
-        (tracker_type + '.yaml')
-    return tracking_config
+    return BOXMOT / tracker_type / 'configs' / f'{tracker_type}.yaml'
     
 
 def create_tracker(tracker_type, tracker_config, reid_weights, device, half):
@@ -18,7 +13,7 @@ def create_tracker(tracker_type, tracker_config, reid_weights, device, half):
     with open(tracker_config, "r") as f:
         cfg = yaml.load(f.read(), Loader=yaml.FullLoader)
     cfg = SimpleNamespace(**cfg)  # easier dict acces by dot, instead of ['']
-    
+
     if tracker_type == 'strongsort':
         from boxmot.strongsort.strong_sort import StrongSORT
         strongsort = StrongSORT(
@@ -36,7 +31,7 @@ def create_tracker(tracker_type, tracker_config, reid_weights, device, half):
 
         )
         return strongsort
-    
+
     elif tracker_type == 'ocsort':
         from boxmot.ocsort.ocsort import OCSort
         ocsort = OCSort(
@@ -50,17 +45,15 @@ def create_tracker(tracker_type, tracker_config, reid_weights, device, half):
             use_byte=cfg.use_byte,
         )
         return ocsort
-    
+
     elif tracker_type == 'bytetrack':
         from boxmot.bytetrack.byte_tracker import BYTETracker
-        bytetracker = BYTETracker(
+        return BYTETracker(
             track_thresh=cfg.track_thresh,
             match_thresh=cfg.match_thresh,
             track_buffer=cfg.track_buffer,
-            frame_rate=cfg.frame_rate
+            frame_rate=cfg.frame_rate,
         )
-        return bytetracker
-    
     elif tracker_type == 'botsort':
         from boxmot.botsort.bot_sort import BoTSORT
         botsort = BoTSORT(

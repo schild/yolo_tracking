@@ -22,5 +22,5 @@ def write_MOT_results(txt_path, results, frame_idx, i):
     # create mot txt file
     txt_path.with_suffix('.txt').touch(exist_ok=True)
 
-    with open(str(txt_path) + '.txt', 'ab+') as f:  # append binary mode
+    with open(f'{str(txt_path)}.txt', 'ab+') as f:  # append binary mode
         np.savetxt(f, mot.numpy(), fmt='%d')  # save as ints instead of scientific notation

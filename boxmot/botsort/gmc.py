@@ -33,7 +33,7 @@ class GMC:
                                        useHarrisDetector=False, k=0.04)
             # self.gmc_file = open('GMC_results.txt', 'w')
 
-        elif self.method == 'file' or self.method == 'files':
+        elif self.method in ['file', 'files']:
             seqName = verbose[0]
             ablation = verbose[1]
             if ablation:
@@ -43,19 +43,16 @@ class GMC:
 
             if '-FRCNN' in seqName:
                 seqName = seqName[:-6]
-            elif '-DPM' in seqName:
+            elif '-DPM' in seqName or '-SDP' in seqName:
                 seqName = seqName[:-4]
-            elif '-SDP' in seqName:
-                seqName = seqName[:-4]
-
-            self.gmcFile = open(filePath + "/GMC-" + seqName + ".txt", 'r')
+            self.gmcFile = open(f"{filePath}/GMC-{seqName}.txt", 'r')
 
             if self.gmcFile is None:
-                raise ValueError("Error: Unable to open GMC file in directory:" + filePath)
-        elif self.method == 'none' or self.method == 'None':
+                raise ValueError(f"Error: Unable to open GMC file in directory:{filePath}")
+        elif self.method in ['none', 'None']:
             self.method = 'none'
         else:
-            raise ValueError("Error: Unknown CMC method:" + method)
+            raise ValueError(f"Error: Unknown CMC method:{method}")
 
         self.prevFrame = None
         self.prevKeyPoints = None
@@ -64,7 +61,7 @@ class GMC:
         self.initializedFirstFrame = False
 
     def apply(self, raw_frame, detections=None):
-        if self.method == 'orb' or self.method == 'sift':
+        if self.method in ['orb', 'sift']:
             return self.applyFeaures(raw_frame, detections)
         elif self.method == 'ecc':
             return self.applyEcc(raw_frame, detections)
@@ -177,7 +174,7 @@ class GMC:
                                    prevKeyPointLocation[1] - currKeyPointLocation[1])
 
                 if (np.abs(spatialDistance[0]) < maxSpatialDistance[0]) and \
-                        (np.abs(spatialDistance[1]) < maxSpatialDistance[1]):
+                            (np.abs(spatialDistance[1]) < maxSpatialDistance[1]):
                     spatialDistances.append(spatialDistance)
                     matches.append(m)
 
@@ -197,26 +194,6 @@ class GMC:
 
         prevPoints = np.array(prevPoints)
         currPoints = np.array(currPoints)
-
-        # Draw the keypoint matches on the output image
-        if 0:
-            matches_img = np.hstack((self.prevFrame, frame))
-            matches_img = cv2.cvtColor(matches_img, cv2.COLOR_GRAY2BGR)
-            W = np.size(self.prevFrame, 1)
-            for m in goodMatches:
-                prev_pt = np.array(self.prevKeyPoints[m.queryIdx].pt, dtype=np.int_)
-                curr_pt = np.array(keypoints[m.trainIdx].pt, dtype=np.int_)
-                curr_pt[0] += W
-                color = np.random.randint(0, 255, (3,))
-                color = (int(color[0]), int(color[1]), int(color[2]))
-
-                matches_img = cv2.line(matches_img, prev_pt, curr_pt, tuple(color), 1, cv2.LINE_AA)
-                matches_img = cv2.circle(matches_img, prev_pt, 2, tuple(color), -1)
-                matches_img = cv2.circle(matches_img, curr_pt, 2, tuple(color), -1)
-
-            plt.figure()
-            plt.imshow(matches_img)
-            plt.show()
 
         # Find rigid matrix
         if (np.size(prevPoints, 0) > 4) and (np.size(prevPoints, 0) == np.size(prevPoints, 0)):

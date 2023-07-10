@@ -62,9 +62,9 @@ class Objective(Evaluator):
         
         d = {}
         self.opt.conf = trial.suggest_float("conf", 0.35, 0.55)
-        
+
         if self.opt.tracking_method == 'strongsort':
-            
+
             iou_thresh = trial.suggest_float("iou_thresh", 0.1, 0.4)
             ecc = trial.suggest_categorical("ecc", [True, False])
             ema_alpha = trial.suggest_float("ema_alpha", 0.7, 0.95)
@@ -87,9 +87,9 @@ class Objective(Evaluator):
                     'n_init': n_init,
                     'nn_budget': nn_budget
             }
-                
+
         elif self.opt.tracking_method == 'botsort':
-            
+
             track_high_thresh = trial.suggest_float("track_high_thresh", 0.2, 0.7)
             new_track_thresh = trial.suggest_float("new_track_thresh", 0.1, 0.8)
             track_buffer = trial.suggest_int("track_buffer", 20, 80, step=10)
@@ -111,22 +111,22 @@ class Objective(Evaluator):
                     'frame_rate': frame_rate,
                     'lambda_': lambda_
             }
-                
+
         elif self.opt.tracking_method == 'bytetrack':
 
             track_thresh = trial.suggest_float("track_thresh", 0.4, 0.6)              
             track_buffer = trial.suggest_int("track_buffer", 10, 60, step=10)  
             match_thresh = trial.suggest_float("match_thresh", 0.7, 0.9)
-            
+
             d = {
                     'track_thresh': self.opt.conf,
                     'match_thresh': match_thresh,
                     'track_buffer': track_buffer,
                     'frame_rate': 30
             }
-                
+
         elif self.opt.tracking_method == 'ocsort':
-            
+
             det_thresh = trial.suggest_int("det_thresh", 0, 0.6)
             max_age = trial.suggest_int("max_age", 10, 60, step=10)
             min_hits = trial.suggest_int("min_hits", 1, 5, step=1)
@@ -135,7 +135,7 @@ class Objective(Evaluator):
             asso_func = trial.suggest_categorical("asso_func", ['iou', 'giou'])
             inertia = trial.suggest_float("inertia", 0.1, 0.4)
             use_byte = trial.suggest_categorical("use_byte", [True, False])
-            
+
             d = {
                     'det_thresh': det_thresh,
                     'max_age': max_age,
@@ -146,9 +146,9 @@ class Objective(Evaluator):
                     'inertia': inertia,
                     'use_byte': use_byte,
             }
-                
+
         elif self.opt.tracking_method == 'deepocsort':
-            
+
             det_thresh = trial.suggest_int("det_thresh", 0.3, 0.6)
             max_age = trial.suggest_int("max_age", 10, 60, step=10)
             min_hits = trial.suggest_int("min_hits", 1, 5, step=1)
@@ -163,7 +163,7 @@ class Objective(Evaluator):
             cmc_off = trial.suggest_categorical("cmc_off", [True, False])
             aw_off = trial.suggest_categorical("aw_off", [True, False])
             new_kf_off = trial.suggest_categorical("new_kf_off", [True, False])
-            
+
             d = {
                     'det_thresh': det_thresh,
                     'max_age': max_age,
@@ -180,9 +180,9 @@ class Objective(Evaluator):
                     'aw_off': aw_off,
                     'new_kf_off': new_kf_off
             }
-                        
+
         # overwrite existing config for tracker
-        logger.info(f"Writing newly generated config for trial")
+        logger.info("Writing newly generated config for trial")
         with open(self.opt.tracking_config, 'w') as f:
             data = yaml.dump(d, f)   
     
@@ -201,9 +201,7 @@ class Objective(Evaluator):
         self.get_new_config(trial)
         # run trial, get HOTA, MOTA, IDF1 COMBINED results
         results = self.run(self.opt)
-        # extract objective results of current trial
-        combined_results = [results.get(key) for key in self.opt.objectives]
-        return combined_results
+        return [results.get(key) for key in self.opt.objectives]
     
 
 def print_best_trial_metric_results(study, objectives):
@@ -235,15 +233,15 @@ def save_plots(opt, study, objectives):
     """
     if len(objectives) > 1:
         fig = optuna.visualization.plot_pareto_front(study, target_names=objectives)
-        fig.write_html("pareto_front_" + opt.tracking_method + ".html")
+        fig.write_html(f"pareto_front_{opt.tracking_method}.html")
     else:
         fig = optuna.visualization.plot_optimization_history(study)
-        fig.write_html("plot_optim_history_" + opt.tracking_method + ".html")
-    
+        fig.write_html(f"plot_optim_history_{opt.tracking_method}.html")
+
     for i, ob in enumerate(objectives):  
-        if not opt.n_trials <= 1:  # more than one trial needed for parameter importance 
+        if opt.n_trials > 1:  # more than one trial needed for parameter importance 
             fig = optuna.visualization.plot_param_importances(study, target=lambda t: t.values[i], target_name=ob)
-            fig.write_html(f"{ob}_param_importances_" + opt.tracking_method + ".html")
+            fig.write_html(f"{ob}_param_importances_{opt.tracking_method}.html")
         
         
 def write_best_HOTA_params_to_config(opt, study):
@@ -284,13 +282,19 @@ def parse_opt():
     parser.add_argument('--resume', action='store_true', help='resume hparam search')
     parser.add_argument('--processes-per-device', type=int, default=2, help='how many subprocesses can be invoked per GPU (to manage memory consumption)')
     parser.add_argument('--objectives', type=str, default='HOTA,MOTA,IDF1', help='set of objective metrics: HOTA,MOTA,IDF1')
-    
+
     opt = parser.parse_args()
-    opt.tracking_config = ROOT / 'boxmot' / opt.tracking_method / 'configs' / (opt.tracking_method + '.yaml')
+    opt.tracking_config = (
+        ROOT
+        / 'boxmot'
+        / opt.tracking_method
+        / 'configs'
+        / f'{opt.tracking_method}.yaml'
+    )
     opt.objectives = opt.objectives.split(",")
 
     device = []
-    
+
     for a in opt.device.split(','):
         try:
             a = int(a)
@@ -298,7 +302,7 @@ def parse_opt():
             pass
         device.append(a)
     opt.device = device
-        
+
     print_args(vars(opt))
     return opt
 
@@ -316,7 +320,7 @@ class ContinuousStudySave:
         self.tracking_method = tracking_method
         
     def __call__(self, study, trial):
-        joblib.dump(study, opt.tracking_method + "_study.pkl")
+        joblib.dump(study, f"{opt.tracking_method}_study.pkl")
 
     
 if __name__ == "__main__":
@@ -327,7 +331,7 @@ if __name__ == "__main__":
 
     if opt.resume:
         # resume from last saved study
-        study = joblib.load(opt.tracking_method + "_study.pkl")
+        study = joblib.load(f"{opt.tracking_method}_study.pkl")
     else:
         # A fast and elitist multiobjective genetic algorithm: NSGA-II
         # https://ieeexplore.ieee.org/document/996017
@@ -339,13 +343,13 @@ if __name__ == "__main__":
 
     continuous_study_save_cb = ContinuousStudySave(opt.tracking_method)
     study.optimize(Objective(opt), n_trials=opt.n_trials, callbacks=[continuous_study_save_cb])
-        
+
     # write the parameters to the config file of the selected tracking method
     write_best_HOTA_params_to_config(opt, study)
-    
+
     # save hps study, all trial results are stored here, used for resuming
-    joblib.dump(study, opt.tracking_method + "_study.pkl")
-    
+    joblib.dump(study, f"{opt.tracking_method}_study.pkl")
+
     # plots
     save_plots(opt, study, opt.objectives)
     print_best_trial_metric_results(study, opt.objectives)

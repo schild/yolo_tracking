@@ -41,10 +41,10 @@ def convert_x_to_bbox(x, score=None):
     """
     w = np.sqrt(x[2] * x[3])
     h = x[2] / w
-    if(score == None):
-      return np.array([x[0]-w/2., x[1]-h/2., x[0]+w/2., x[1]+h/2.]).reshape((1, 4))
+    if score is None:
+        return np.array([x[0]-w/2., x[1]-h/2., x[0]+w/2., x[1]+h/2.]).reshape((1, 4))
     else:
-      return np.array([x[0]-w/2., x[1]-h/2., x[0]+w/2., x[1]+h/2., score]).reshape((1, 5))
+        return np.array([x[0]-w/2., x[1]-h/2., x[0]+w/2., x[1]+h/2., score]).reshape((1, 5))
 
 
 def speed_direction(bbox1, bbox2):
@@ -68,11 +68,10 @@ class KalmanBoxTracker(object):
         """
         # define constant velocity model
         if not orig:
-          from .kalmanfilter import KalmanFilterNew as KalmanFilter
-          self.kf = KalmanFilter(dim_x=7, dim_z=4)
+            from .kalmanfilter import KalmanFilterNew as KalmanFilter
         else:
-          from filterpy.kalman import KalmanFilter
-          self.kf = KalmanFilter(dim_x=7, dim_z=4)
+            from filterpy.kalman import KalmanFilter
+        self.kf = KalmanFilter(dim_x=7, dim_z=4)
         self.kf.F = np.array([[1, 0, 0, 0, 1, 0, 0], [0, 1, 0, 0, 0, 1, 0], [0, 0, 1, 0, 0, 0, 1], [
                             0, 0, 0, 1, 0, 0, 0],  [0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0, 1]])
         self.kf.H = np.array([[1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0],
@@ -100,7 +99,7 @@ class KalmanBoxTracker(object):
         fast and unified way, which you would see below k_observations = np.array([k_previous_obs(...]]), let's bear it for now.
         """
         self.last_observation = np.array([-1, -1, -1, -1, -1])  # placeholder
-        self.observations = dict()
+        self.observations = {}
         self.history_observations = []
         self.velocity = None
         self.delta_t = delta_t
@@ -206,21 +205,25 @@ class OCSort(object):
         """
 
         assert isinstance(dets, np.ndarray), f"Unsupported 'dets' input format '{type(dets)}', valid format is np.ndarray"
-        assert len(dets.shape) == 2, f"Unsupported 'dets' dimensions, valid number of dimensions is two"
-        assert dets.shape[1] == 6, f"Unsupported 'dets' 2nd dimension lenght, valid lenghts is 6"
+        assert (
+            len(dets.shape) == 2
+        ), "Unsupported 'dets' dimensions, valid number of dimensions is two"
+        assert (
+            dets.shape[1] == 6
+        ), "Unsupported 'dets' 2nd dimension lenght, valid lenghts is 6"
 
         self.frame_count += 1
-        
+
         xyxys = dets[:, 0:4]
         confs = dets[:, 4]
         clss = dets[:, 5]
-        
+
         classes = clss
         xyxys = xyxys
         confs = confs
 
         output_results = np.column_stack((xyxys, confs, classes))
-        
+
         inds_low = confs > 0.1
         inds_high = confs < self.det_thresh
         inds_second = np.logical_and(inds_low, inds_high)  # self.det_thresh > score > 0.1, for second matching
@@ -327,6 +330,4 @@ class OCSort(object):
             # remove dead tracklet
             if(trk.time_since_update > self.max_age):
                 self.trackers.pop(i)
-        if(len(ret) > 0):
-            return np.concatenate(ret)
-        return np.array([])
+        return np.concatenate(ret) if ret else np.array([])

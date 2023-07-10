@@ -113,9 +113,7 @@ def build_model(
     """
     avai_models = list(__model_factory.keys())
     if name not in avai_models:
-        raise KeyError(
-            'Unknown model: {}. Must be one of {}'.format(name, avai_models)
-        )
+        raise KeyError(f'Unknown model: {name}. Must be one of {avai_models}')
     return __model_factory[name](
         num_classes=num_classes,
         loss=loss,

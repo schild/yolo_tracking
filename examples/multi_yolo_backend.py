@@ -14,7 +14,7 @@ class MultiYolo():
     def __init__(self, model, device, args):
         self.args = args
         self.device = device
-        if not (isinstance(model, str) or isinstance(model, Path)):
+        if not (isinstance(model, (str, Path))):
             self.model_name = 'yolov8'
             self.model = model
         else:

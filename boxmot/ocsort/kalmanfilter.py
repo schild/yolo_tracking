@@ -388,50 +388,51 @@ class KalmanFilterNew(object):
 
 
     def unfreeze(self):
-        if self.attr_saved is not None:
-            new_history = deepcopy(self.history_obs)
-            self.__dict__ = self.attr_saved
-            # self.history_obs = new_history 
-            self.history_obs = self.history_obs[:-1]
-            occur = [int(d is None) for d in new_history]
-            indices = np.where(np.array(occur)==0)[0]
-            index1 = indices[-2]
-            index2 = indices[-1]
-            box1 = new_history[index1]
-            x1, y1, s1, r1 = box1 
-            w1 = np.sqrt(s1 * r1)
-            h1 = np.sqrt(s1 / r1)
-            box2 = new_history[index2]
-            x2, y2, s2, r2 = box2 
-            w2 = np.sqrt(s2 * r2)
-            h2 = np.sqrt(s2 / r2)
-            time_gap = index2 - index1
-            dx = (x2-x1)/time_gap
-            dy = (y2-y1)/time_gap 
-            dw = (w2-w1)/time_gap 
-            dh = (h2-h1)/time_gap
-            for i in range(index2 - index1):
-                """
+        if self.attr_saved is None:
+            return
+        new_history = deepcopy(self.history_obs)
+        self.__dict__ = self.attr_saved
+        # self.history_obs = new_history 
+        self.history_obs = self.history_obs[:-1]
+        occur = [int(d is None) for d in new_history]
+        indices = np.where(np.array(occur)==0)[0]
+        index1 = indices[-2]
+        index2 = indices[-1]
+        box1 = new_history[index1]
+        x1, y1, s1, r1 = box1
+        w1 = np.sqrt(s1 * r1)
+        h1 = np.sqrt(s1 / r1)
+        box2 = new_history[index2]
+        x2, y2, s2, r2 = box2
+        w2 = np.sqrt(s2 * r2)
+        h2 = np.sqrt(s2 / r2)
+        time_gap = index2 - index1
+        dx = (x2-x1)/time_gap
+        dy = (y2-y1)/time_gap
+        dw = (w2-w1)/time_gap
+        dh = (h2-h1)/time_gap
+        for i in range(index2 - index1):
+            """
                     The default virtual trajectory generation is by linear
                     motion (constant speed hypothesis), you could modify this 
                     part to implement your own. 
                 """
-                x = x1 + (i+1) * dx 
-                y = y1 + (i+1) * dy 
-                w = w1 + (i+1) * dw 
-                h = h1 + (i+1) * dh
-                s = w * h 
-                r = w / float(h)
-                new_box = np.array([x, y, s, r]).reshape((4, 1))
-                """
+            x = x1 + (i+1) * dx
+            y = y1 + (i+1) * dy
+            w = w1 + (i+1) * dw
+            h = h1 + (i+1) * dh
+            s = w * h
+            r = w / float(h)
+            new_box = np.array([x, y, s, r]).reshape((4, 1))
+            """
                     I still use predict-update loop here to refresh the parameters,
                     but this can be faster by directly modifying the internal parameters
                     as suggested in the paper. I keep this naive but slow way for 
                     easy read and understanding
                 """
-                self.update(new_box)
-                if not i == (index2-index1-1):
-                    self.predict()
+            self.update(new_box)
+            if i != index2 - index1 - 1:
+                self.predict()
 
 
     def update(self, z, R=None, H=None):
@@ -545,11 +546,7 @@ class KalmanFilterNew(object):
             B = self.B
 
         # x = Fx + Bu
-        if B is not None:
-            self.x = dot(self.F, self.x) + dot(B, u)
-        else:
-            self.x = dot(self.F, self.x)
-
+        self.x = dot(self.F, self.x) if B is None else dot(self.F, self.x) + dot(B, u)
         # save prior
         self.x_prior = self.x.copy()
         self.P_prior = self.P.copy()
@@ -931,11 +928,7 @@ class KalmanFilterNew(object):
             Q = eye(self.dim_x) * Q
 
         # x = Fx + Bu
-        if B is not None and u is not None:
-            x = dot(F, self.x) + dot(B, u)
-        else:
-            x = dot(F, self.x)
-
+        x = dot(F, self.x) if B is None or u is None else dot(F, self.x) + dot(B, u)
         # P = FPF' + Q
         P = self._alpha_sq * dot(dot(F, self.P), F.T) + Q
 
@@ -1131,37 +1124,40 @@ class KalmanFilterNew(object):
         x = self.x
         P = self.P
 
-        assert x.ndim == 1 or x.ndim == 2, \
-                "x must have one or two dimensions, but has {}".format(x.ndim)
+        assert x.ndim in [1, 2], f"x must have one or two dimensions, but has {x.ndim}"
 
         if x.ndim == 1:
-            assert x.shape[0] == self.dim_x, \
-                   "Shape of x must be ({},{}), but is {}".format(
-                       self.dim_x, 1, x.shape)
+            assert (
+                x.shape[0] == self.dim_x
+            ), f"Shape of x must be ({self.dim_x},1), but is {x.shape}"
         else:
-            assert x.shape == (self.dim_x, 1), \
-                   "Shape of x must be ({},{}), but is {}".format(
-                       self.dim_x, 1, x.shape)
+            assert x.shape == (
+                self.dim_x,
+                1,
+            ), f"Shape of x must be ({self.dim_x},1), but is {x.shape}"
 
-        assert P.shape == (self.dim_x, self.dim_x), \
-               "Shape of P must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, P.shape)
+        assert P.shape == (
+            self.dim_x,
+            self.dim_x,
+        ), f"Shape of P must be ({self.dim_x},{self.dim_x}), but is {P.shape}"
 
-        assert Q.shape == (self.dim_x, self.dim_x), \
-               "Shape of Q must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, P.shape)
+        assert Q.shape == (
+            self.dim_x,
+            self.dim_x,
+        ), f"Shape of Q must be ({self.dim_x},{self.dim_x}), but is {P.shape}"
 
-        assert F.shape == (self.dim_x, self.dim_x), \
-               "Shape of F must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, F.shape)
+        assert F.shape == (
+            self.dim_x,
+            self.dim_x,
+        ), f"Shape of F must be ({self.dim_x},{self.dim_x}), but is {F.shape}"
 
-        assert np.ndim(H) == 2, \
-               "Shape of H must be (dim_z, {}), but is {}".format(
-                   P.shape[0], shape(H))
+        assert (
+            np.ndim(H) == 2
+        ), f"Shape of H must be (dim_z, {P.shape[0]}), but is {shape(H)}"
 
-        assert H.shape[1] == P.shape[0], \
-               "Shape of H must be (dim_z, {}), but is {}".format(
-                   P.shape[0], H.shape)
+        assert (
+            H.shape[1] == P.shape[0]
+        ), f"Shape of H must be (dim_z, {P.shape[0]}), but is {H.shape}"
 
         # shape of R must be the same as HPH'
         hph_shape = (H.shape[0], H.shape[0])
@@ -1169,40 +1165,39 @@ class KalmanFilterNew(object):
 
         if H.shape[0] == 1:
             # r can be scalar, 1D, or 2D in this case
-            assert r_shape in [(), (1,), (1, 1)], \
-            "R must be scalar or one element array, but is shaped {}".format(
-                r_shape)
+            assert r_shape in [
+                (),
+                (1,),
+                (1, 1),
+            ], f"R must be scalar or one element array, but is shaped {r_shape}"
         else:
-            assert r_shape == hph_shape, \
-            "shape of R should be {} but it is {}".format(hph_shape, r_shape)
+            assert (
+                r_shape == hph_shape
+            ), f"shape of R should be {hph_shape} but it is {r_shape}"
 
 
-        if z is not None:
-            z_shape = shape(z)
-        else:
-            z_shape = (self.dim_z, 1)
-
+        z_shape = shape(z) if z is not None else (self.dim_z, 1)
         # H@x must have shape of z
         Hx = dot(H, x)
 
         if z_shape == (): # scalar or np.array(scalar)
-            assert Hx.ndim == 1 or shape(Hx) == (1, 1), \
-            "shape of z should be {}, not {} for the given H".format(
-                shape(Hx), z_shape)
+            assert Hx.ndim == 1 or shape(Hx) == (
+                1,
+                1,
+            ), f"shape of z should be {shape(Hx)}, not {z_shape} for the given H"
 
         elif shape(Hx) == (1,):
-            assert z_shape[0] == 1, 'Shape of z must be {} for the given H'.format(shape(Hx))
+            assert z_shape[0] == 1, f'Shape of z must be {shape(Hx)} for the given H'
 
         else:
-            assert (z_shape == shape(Hx) or
-                    (len(z_shape) == 1 and shape(Hx) == (z_shape[0], 1))), \
-                    "shape of z should be {}, not {} for the given H".format(
-                        shape(Hx), z_shape)
+            assert z_shape == shape(Hx) or (
+                len(z_shape) == 1 and shape(Hx) == (z_shape[0], 1)
+            ), f"shape of z should be {shape(Hx)}, not {z_shape} for the given H"
 
         if np.ndim(Hx) > 1 and shape(Hx) != (1, 1):
-            assert shape(Hx) == z_shape, \
-               'shape of z should be {} for the given H, but it is {}'.format(
-                   shape(Hx), z_shape)
+            assert (
+                shape(Hx) == z_shape
+            ), f'shape of z should be {shape(Hx)} for the given H, but it is {z_shape}'
 
 
 def update(x, P, z, R, H=None, return_all=False):
@@ -1249,10 +1244,7 @@ def update(x, P, z, R, H=None, return_all=False):
     #pylint: disable=bare-except
 
     if z is None:
-        if return_all:
-            return x, P, None, None, None, None
-        return x, P
-
+        return (x, P, None, None, None, None) if return_all else (x, P)
     if H is None:
         H = np.array([1])
 

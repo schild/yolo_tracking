@@ -89,8 +89,7 @@ class Mixed_5b(nn.Module):
         x1 = self.branch1(x)
         x2 = self.branch2(x)
         x3 = self.branch3(x)
-        out = torch.cat((x0, x1, x2, x3), 1)
-        return out
+        return torch.cat((x0, x1, x2, x3), 1)
 
 
 class Block35(nn.Module):
@@ -146,8 +145,7 @@ class Mixed_6a(nn.Module):
         x0 = self.branch0(x)
         x1 = self.branch1(x)
         x2 = self.branch2(x)
-        out = torch.cat((x0, x1, x2), 1)
-        return out
+        return torch.cat((x0, x1, x2), 1)
 
 
 class Block17(nn.Module):
@@ -210,8 +208,7 @@ class Mixed_7a(nn.Module):
         x1 = self.branch1(x)
         x2 = self.branch2(x)
         x3 = self.branch3(x)
-        out = torch.cat((x0, x1, x2, x3), 1)
-        return out
+        return torch.cat((x0, x1, x2, x3), 1)
 
 
 class Block8(nn.Module):
@@ -351,7 +348,7 @@ class InceptionResNetV2(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError('Unsupported loss: {}'.format(self.loss))
+            raise KeyError(f'Unsupported loss: {self.loss}')
 
 
 def inceptionresnetv2(num_classes, loss='softmax', pretrained=True, **kwargs):

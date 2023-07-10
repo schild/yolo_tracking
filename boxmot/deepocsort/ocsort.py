@@ -58,7 +58,7 @@ def convert_x_to_bbox(x, score=None):
     """
     w = np.sqrt(x[2] * x[3])
     h = x[2] / w
-    if score == None:
+    if score is None:
         return np.array([x[0] - w / 2.0, x[1] - h / 2.0, x[0] + w / 2.0, x[1] + h / 2.0]).reshape((1, 4))
     else:
         return np.array([x[0] - w / 2.0, x[1] - h / 2.0, x[0] + w / 2.0, x[1] + h / 2.0, score]).reshape((1, 5))
@@ -73,17 +73,24 @@ def speed_direction(bbox1, bbox2):
 
 
 def new_kf_process_noise(w, h, p=1 / 20, v=1 / 160):
-    Q = np.diag(
-        ((p * w) ** 2, (p * h) ** 2, (p * w) ** 2, (p * h) ** 2, (v * w) ** 2, (v * h) ** 2, (v * w) ** 2, (v * h) ** 2)
+    return np.diag(
+        (
+            (p * w) ** 2,
+            (p * h) ** 2,
+            (p * w) ** 2,
+            (p * h) ** 2,
+            (v * w) ** 2,
+            (v * h) ** 2,
+            (v * w) ** 2,
+            (v * h) ** 2,
+        )
     )
-    return Q
 
 
 def new_kf_measurement_noise(w, h, m=1 / 20):
     w_var = (m * w) ** 2
     h_var = (m * h) ** 2
-    R = np.diag((w_var, h_var, w_var, h_var))
-    return R
+    return np.diag((w_var, h_var, w_var, h_var))
 
 
 class KalmanBoxTracker(object):
@@ -104,7 +111,7 @@ class KalmanBoxTracker(object):
         else:
             from filterpy.kalman import KalmanFilter
         self.cls = cls
-        
+
         self.conf = bbox[-1]
         self.new_kf = new_kf
         if new_kf:
@@ -186,7 +193,7 @@ class KalmanBoxTracker(object):
         # Used to output track after min_hits reached
         self.history_observations = []
         # Used for velocity
-        self.observations = dict()
+        self.observations = {}
         self.velocity = None
         self.delta_t = delta_t
 
@@ -203,11 +210,14 @@ class KalmanBoxTracker(object):
             self.cls = cls
             self.conf = bbox[-1]
             if self.last_observation.sum() >= 0:  # no previous observation
-                previous_box = None
-                for dt in range(self.delta_t, 0, -1):
-                    if self.age - dt in self.observations:
-                        previous_box = self.observations[self.age - dt]
-                        break
+                previous_box = next(
+                    (
+                        self.observations[self.age - dt]
+                        for dt in range(self.delta_t, 0, -1)
+                        if self.age - dt in self.observations
+                    ),
+                    None,
+                )
                 if previous_box is None:
                     previous_box = self.last_observation
                 """

@@ -60,10 +60,7 @@ class Bottleneck(nn.Module):
         m = self.conv1(x)
         m = self.dwconv2(m)
         m = self.conv3(m)
-        if self.use_residual:
-            return x + m
-        else:
-            return m
+        return x + m if self.use_residual else m
 
 
 class MobileNetV2(nn.Module):
@@ -130,11 +127,9 @@ class MobileNetV2(nn.Module):
         # c: output channels
         # n: number of blocks
         # s: stride for first layer
-        layers = []
-        layers.append(block(self.in_channels, c, t, s))
+        layers = [block(self.in_channels, c, t, s)]
         self.in_channels = c
-        for i in range(1, n):
-            layers.append(block(self.in_channels, c, t))
+        layers.extend(block(self.in_channels, c, t) for _ in range(1, n))
         return nn.Sequential(*layers)
 
     def _construct_fc_layer(self, fc_dims, input_dim, dropout_p=None):
@@ -151,15 +146,17 @@ class MobileNetV2(nn.Module):
 
         assert isinstance(
             fc_dims, (list, tuple)
-        ), 'fc_dims must be either list or tuple, but got {}'.format(
-            type(fc_dims)
-        )
+        ), f'fc_dims must be either list or tuple, but got {type(fc_dims)}'
 
         layers = []
         for dim in fc_dims:
-            layers.append(nn.Linear(input_dim, dim))
-            layers.append(nn.BatchNorm1d(dim))
-            layers.append(nn.ReLU(inplace=True))
+            layers.extend(
+                (
+                    nn.Linear(input_dim, dim),
+                    nn.BatchNorm1d(dim),
+                    nn.ReLU(inplace=True),
+                )
+            )
             if dropout_p is not None:
                 layers.append(nn.Dropout(p=dropout_p))
             input_dim = dim
@@ -176,10 +173,7 @@ class MobileNetV2(nn.Module):
                 )
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
@@ -217,7 +211,7 @@ class MobileNetV2(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError("Unsupported loss: {}".format(self.loss))
+            raise KeyError(f"Unsupported loss: {self.loss}")
 
 
 def init_pretrained_weights(model, model_url):
@@ -249,8 +243,7 @@ def mobilenetv2_x1_0(num_classes, loss, pretrained=True, **kwargs):
         # init_pretrained_weights(model, model_urls['mobilenetv2_x1_0'])
         import warnings
         warnings.warn(
-            'The imagenet pretrained weights need to be manually downloaded from {}'
-            .format(model_urls['mobilenetv2_x1_0'])
+            f"The imagenet pretrained weights need to be manually downloaded from {model_urls['mobilenetv2_x1_0']}"
         )
     return model
 
@@ -268,7 +261,6 @@ def mobilenetv2_x1_4(num_classes, loss, pretrained=True, **kwargs):
         # init_pretrained_weights(model, model_urls['mobilenetv2_x1_4'])
         import warnings
         warnings.warn(
-            'The imagenet pretrained weights need to be manually downloaded from {}'
-            .format(model_urls['mobilenetv2_x1_4'])
+            f"The imagenet pretrained weights need to be manually downloaded from {model_urls['mobilenetv2_x1_4']}"
         )
     return model

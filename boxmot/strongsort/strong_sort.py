@@ -42,18 +42,22 @@ class StrongSORT(object):
 
         assert isinstance(dets, np.ndarray), f"Unsupported 'dets' input format '{type(dets)}', valid format is np.ndarray"
         assert isinstance(img, np.ndarray), f"Unsupported 'img' input format '{type(img)}', valid format is np.ndarray"
-        assert len(dets.shape) == 2, f"Unsupported 'dets' dimensions, valid number of dimensions is two"
-        assert dets.shape[1] == 6, f"Unsupported 'dets' 2nd dimension lenght, valid lenghts is 6"
-        
+        assert (
+            len(dets.shape) == 2
+        ), "Unsupported 'dets' dimensions, valid number of dimensions is two"
+        assert (
+            dets.shape[1] == 6
+        ), "Unsupported 'dets' 2nd dimension lenght, valid lenghts is 6"
+
         xyxys = dets[:, 0:4]
         confs = dets[:, 4]
         clss = dets[:, 5]
-        
+
         classes = clss
         xywhs = xyxy2xywh(xyxys)
         confs = confs
         self.height, self.width = img.shape[:2]
-        
+
         # generate detections
         features = self._get_features(xywhs, img)
         bbox_tlwh = self._xywh_to_tlwh(xywhs)
@@ -66,8 +70,7 @@ class StrongSORT(object):
 
         # update tracker
         self.tracker.predict()
-        self.tracker.update(detections, clss, confs)
-
+        self.tracker.update(detections, classes, confs)
         # output bbox identities
         outputs = []
         for track in self.tracker.tracks:
@@ -76,14 +79,13 @@ class StrongSORT(object):
 
             box = track.to_tlwh()
             x1, y1, x2, y2 = self._tlwh_to_xyxy(box)
-            
+
             track_id = track.track_id
             class_id = track.class_id
             conf = track.conf
             queue = track.q
             outputs.append(np.array([x1, y1, x2, y2, track_id, conf, class_id], dtype=np.float64))
-        outputs = np.asarray(outputs)
-        return outputs
+        return np.asarray(outputs)
 
     """
     TODO:
@@ -129,9 +131,7 @@ class StrongSORT(object):
 
         t = x1
         l = y1
-        w = int(x2 - x1)
-        h = int(y2 - y1)
-        return t, l, w, h
+        return t, l, int(x2 - t), int(y2 - l)
 
     @torch.no_grad()
     def _get_features(self, bbox_xywh, img):
@@ -140,11 +140,7 @@ class StrongSORT(object):
             x1, y1, x2, y2 = self._xywh_to_xyxy(box)
             im = img[y1:y2, x1:x2]
             im_crops.append(im)
-        if im_crops:
-            features = self.model(im_crops)
-        else:
-            features = np.array([])
-        return features
+        return self.model(im_crops) if im_crops else np.array([])
     
     def trajectory(self, im0, q, color):
         # Add rectangle to image (PIL-only)

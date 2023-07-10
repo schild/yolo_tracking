@@ -34,7 +34,6 @@ class CMCComputer:
             self.comp_function = self._affine_sparse_flow
         elif method == "sift":
             self.comp_function = self._affine_sift
-        # Same BoT-SORT CMC arrays
         elif method == "file":
             self.comp_function = self._affine_file
             self.file_affines = {}
@@ -56,7 +55,7 @@ class CMCComputer:
             for f_name in os.listdir("./cache/cmc_files/MOTChallenge/"):
                 tag = f_name.replace("GMC-", "").replace(".txt", "")
                 if "MOT17" in tag:
-                    tag = tag + "-FRCNN"
+                    tag = f"{tag}-FRCNN"
                 # If it's an ablation one (not test) don't overwrite it
                 if tag in self.file_names:
                     continue
@@ -66,8 +65,7 @@ class CMCComputer:
     def compute_affine(self, img, bbox, tag):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         if tag in self.cache:
-            A = self.cache[tag]
-            return A
+            return self.cache[tag]
         mask = np.ones_like(img, dtype=np.uint8)
         if bbox.shape[0] > 0:
             bbox = np.round(bbox).astype(np.int32)
@@ -116,11 +114,7 @@ class CMCComputer:
 
         bf = cv2.BFMatcher(cv2.NORM_L2)
         matches = bf.knnMatch(self.prev_desc[1], desc, k=2)
-        good = []
-        for m, n in matches:
-            if m.distance < 0.7 * n.distance:
-                good.append(m)
-
+        good = [m for m, n in matches if m.distance < 0.7 * n.distance]
         if len(good) > self.minimum_features:
             src_pts = np.float32([self.prev_desc[0][m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
             dst_pts = np.float32([kp[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
