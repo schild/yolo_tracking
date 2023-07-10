@@ -201,9 +201,7 @@ class ChannelGate(nn.Module):
         elif gate_activation == 'linear':
             self.gate_activation = None
         else:
-            raise RuntimeError(
-                "Unknown gate activation: {}".format(gate_activation)
-            )
+            raise RuntimeError(f"Unknown gate activation: {gate_activation}")
 
     def forward(self, x):
         input = x
@@ -215,9 +213,7 @@ class ChannelGate(nn.Module):
         x = self.fc2(x)
         if self.gate_activation is not None:
             x = self.gate_activation(x)
-        if self.return_gates:
-            return x
-        return input * x
+        return x if self.return_gates else input * x
 
 
 class OSBlock(nn.Module):
@@ -351,12 +347,11 @@ class OSNet(nn.Module):
         reduce_spatial_size,
         IN=False
     ):
-        layers = []
+        layers = [block(in_channels, out_channels, IN=IN)]
 
-        layers.append(block(in_channels, out_channels, IN=IN))
-        for i in range(1, layer):
-            layers.append(block(out_channels, out_channels, IN=IN))
-
+        layers.extend(
+            block(out_channels, out_channels, IN=IN) for _ in range(1, layer)
+        )
         if reduce_spatial_size:
             layers.append(
                 nn.Sequential(
@@ -377,9 +372,13 @@ class OSNet(nn.Module):
 
         layers = []
         for dim in fc_dims:
-            layers.append(nn.Linear(input_dim, dim))
-            layers.append(nn.BatchNorm1d(dim))
-            layers.append(nn.ReLU(inplace=True))
+            layers.extend(
+                (
+                    nn.Linear(input_dim, dim),
+                    nn.BatchNorm1d(dim),
+                    nn.ReLU(inplace=True),
+                )
+            )
             if dropout_p is not None:
                 layers.append(nn.Dropout(p=dropout_p))
             input_dim = dim
@@ -397,11 +396,7 @@ class OSNet(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-
-            elif isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
@@ -435,7 +430,7 @@ class OSNet(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError("Unsupported loss: {}".format(self.loss))
+            raise KeyError(f"Unsupported loss: {self.loss}")
 
 
 def init_pretrained_weights(model, key=''):
@@ -467,13 +462,10 @@ def init_pretrained_weights(model, key=''):
     try:
         os.makedirs(model_dir)
     except OSError as e:
-        if e.errno == errno.EEXIST:
-            # Directory already exists, ignore.
-            pass
-        else:
+        if e.errno != errno.EEXIST:
             # Unexpected OSError, re-raise.
             raise
-    filename = key + '_imagenet.pth'
+    filename = f'{key}_imagenet.pth'
     cached_file = os.path.join(model_dir, filename)
 
     if not os.path.exists(cached_file):
@@ -497,7 +489,7 @@ def init_pretrained_weights(model, key=''):
     model_dict.update(new_state_dict)
     model.load_state_dict(model_dict)
 
-    if len(matched_layers) == 0:
+    if not matched_layers:
         warnings.warn(
             'The pretrained weights from "{}" cannot be loaded, '
             'please check the key names manually '
@@ -508,7 +500,7 @@ def init_pretrained_weights(model, key=''):
             'Successfully loaded imagenet pretrained weights from "{}"'.
             format(cached_file)
         )
-        if len(discarded_layers) > 0:
+        if discarded_layers:
             print(
                 '** The following layers are discarded '
                 'due to unmatched keys or layer size: {}'.

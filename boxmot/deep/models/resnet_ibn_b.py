@@ -160,10 +160,7 @@ class ResNet(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-            elif isinstance(m, nn.InstanceNorm2d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.InstanceNorm2d)):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
@@ -181,11 +178,9 @@ class ResNet(nn.Module):
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers = [block(self.inplanes, planes, stride, downsample)]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks - 1):
-            layers.append(block(self.inplanes, planes))
+        layers.extend(block(self.inplanes, planes) for _ in range(1, blocks - 1))
         layers.append(block(self.inplanes, planes, IN=IN))
 
         return nn.Sequential(*layers)
@@ -204,15 +199,17 @@ class ResNet(nn.Module):
 
         assert isinstance(
             fc_dims, (list, tuple)
-        ), 'fc_dims must be either list or tuple, but got {}'.format(
-            type(fc_dims)
-        )
+        ), f'fc_dims must be either list or tuple, but got {type(fc_dims)}'
 
         layers = []
         for dim in fc_dims:
-            layers.append(nn.Linear(input_dim, dim))
-            layers.append(nn.BatchNorm1d(dim))
-            layers.append(nn.ReLU(inplace=True))
+            layers.extend(
+                (
+                    nn.Linear(input_dim, dim),
+                    nn.BatchNorm1d(dim),
+                    nn.ReLU(inplace=True),
+                )
+            )
             if dropout_p is not None:
                 layers.append(nn.Dropout(p=dropout_p))
             input_dim = dim
@@ -246,7 +243,7 @@ class ResNet(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError("Unsupported loss: {}".format(self.loss))
+            raise KeyError(f"Unsupported loss: {self.loss}")
 
 
 def init_pretrained_weights(model, model_url):

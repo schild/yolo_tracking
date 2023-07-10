@@ -56,8 +56,7 @@ class InceptionA(nn.Module):
         s2 = self.stream2(x)
         s3 = self.stream3(x)
         s4 = self.stream4(x)
-        y = torch.cat([s1, s2, s3, s4], dim=1)
-        return y
+        return torch.cat([s1, s2, s3, s4], dim=1)
 
 
 class InceptionB(nn.Module):
@@ -84,8 +83,7 @@ class InceptionB(nn.Module):
         s1 = self.stream1(x)
         s2 = self.stream2(x)
         s3 = self.stream3(x)
-        y = torch.cat([s1, s2, s3], dim=1)
-        return y
+        return torch.cat([s1, s2, s3], dim=1)
 
 
 class SpatialAttn(nn.Module):
@@ -270,10 +268,7 @@ class HACNN(nn.Module):
 
     def init_scale_factors(self):
         # initialize scale factors (s_w, s_h) for four regions
-        self.scale_factors = []
-        self.scale_factors.append(
-            torch.tensor([[1, 0], [0, 0.25]], dtype=torch.float)
-        )
+        self.scale_factors = [torch.tensor([[1, 0], [0, 0.25]], dtype=torch.float)]
         self.scale_factors.append(
             torch.tensor([[1, 0], [0, 0.25]], dtype=torch.float)
         )
@@ -305,8 +300,9 @@ class HACNN(nn.Module):
         return theta
 
     def forward(self, x):
-        assert x.size(2) == 160 and x.size(3) == 64, \
-            'Input size does not match, expected (160, 64) but got ({}, {})'.format(x.size(2), x.size(3))
+        assert (
+            x.size(2) == 160 and x.size(3) == 64
+        ), f'Input size does not match, expected (160, 64) but got ({x.size(2)}, {x.size(3)})'
         x = self.conv(x)
 
         # ============== Block 1 ==============
@@ -386,14 +382,12 @@ class HACNN(nn.Module):
             x_local = self.fc_local(x_local)
 
         if not self.training:
-            # l2 normalization before concatenation
-            if self.learn_region:
-                x_global = x_global / x_global.norm(p=2, dim=1, keepdim=True)
-                x_local = x_local / x_local.norm(p=2, dim=1, keepdim=True)
-                return torch.cat([x_global, x_local], 1)
-            else:
+            if not self.learn_region:
                 return x_global
 
+            x_global = x_global / x_global.norm(p=2, dim=1, keepdim=True)
+            x_local = x_local / x_local.norm(p=2, dim=1, keepdim=True)
+            return torch.cat([x_global, x_local], 1)
         prelogits_global = self.classifier_global(x_global)
         if self.learn_region:
             prelogits_local = self.classifier_local(x_local)
@@ -411,4 +405,4 @@ class HACNN(nn.Module):
                 return prelogits_global, x_global
 
         else:
-            raise KeyError("Unsupported loss: {}".format(self.loss))
+            raise KeyError(f"Unsupported loss: {self.loss}")

@@ -31,8 +31,8 @@ def merge_matches(m1, m2, shape):
     mask = M1*M2
     match = mask.nonzero()
     match = list(zip(match[0], match[1]))
-    unmatched_O = tuple(set(range(O)) - set([i for i, j in match]))
-    unmatched_Q = tuple(set(range(Q)) - set([j for i, j in match]))
+    unmatched_O = tuple(set(range(O)) - {i for i, j in match})
+    unmatched_Q = tuple(set(range(Q)) - {j for i, j in match})
 
     return match, unmatched_O, unmatched_Q
 
@@ -53,9 +53,7 @@ def linear_assignment(cost_matrix, thresh):
         return np.empty((0, 2), dtype=int), tuple(range(cost_matrix.shape[0])), tuple(range(cost_matrix.shape[1]))
     matches, unmatched_a, unmatched_b = [], [], []
     cost, x, y = lap.lapjv(cost_matrix, extend_cost=True, cost_limit=thresh)
-    for ix, mx in enumerate(x):
-        if mx >= 0:
-            matches.append([ix, mx])
+    matches.extend([ix, mx] for ix, mx in enumerate(x) if mx >= 0)
     unmatched_a = np.where(x < 0)[0]
     unmatched_b = np.where(y < 0)[0]
     matches = np.asarray(matches)
@@ -98,9 +96,7 @@ def iou_distance(atracks, btracks):
         atlbrs = [track.tlbr for track in atracks]
         btlbrs = [track.tlbr for track in btracks]
     _ious = ious(atlbrs, btlbrs)
-    cost_matrix = 1 - _ious
-
-    return cost_matrix
+    return 1 - _ious
 
 def v_iou_distance(atracks, btracks):
     """
@@ -118,9 +114,7 @@ def v_iou_distance(atracks, btracks):
         atlbrs = [track.tlwh_to_tlbr(track.pred_bbox) for track in atracks]
         btlbrs = [track.tlwh_to_tlbr(track.pred_bbox) for track in btracks]
     _ious = ious(atlbrs, btlbrs)
-    cost_matrix = 1 - _ious
-
-    return cost_matrix
+    return 1 - _ious
 
 def embedding_distance(tracks, detections, metric='cosine'):
     """
@@ -177,9 +171,7 @@ def fuse_iou(cost_matrix, tracks, detections):
     fuse_sim = reid_sim * (1 + iou_sim) / 2
     det_scores = np.array([det.score for det in detections])
     det_scores = np.expand_dims(det_scores, axis=0).repeat(cost_matrix.shape[0], axis=0)
-    #fuse_sim = fuse_sim * (1 + det_scores) / 2
-    fuse_cost = 1 - fuse_sim
-    return fuse_cost
+    return 1 - fuse_sim
 
 
 def fuse_score(cost_matrix, detections):
@@ -189,8 +181,7 @@ def fuse_score(cost_matrix, detections):
     det_scores = np.array([det.score for det in detections])
     det_scores = np.expand_dims(det_scores, axis=0).repeat(cost_matrix.shape[0], axis=0)
     fuse_sim = iou_sim * det_scores
-    fuse_cost = 1 - fuse_sim
-    return fuse_cost
+    return 1 - fuse_sim
 
 
 def bbox_ious(boxes, query_boxes):

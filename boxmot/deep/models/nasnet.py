@@ -291,10 +291,9 @@ class CellStem0(nn.Module):
         x_comb_iter_4_right = self.comb_iter_4_right(x1)
         x_comb_iter_4 = x_comb_iter_4_left + x_comb_iter_4_right
 
-        x_out = torch.cat(
+        return torch.cat(
             [x_comb_iter_1, x_comb_iter_2, x_comb_iter_3, x_comb_iter_4], 1
         )
-        return x_out
 
 
 class CellStem1(nn.Module):
@@ -449,10 +448,9 @@ class CellStem1(nn.Module):
         x_comb_iter_4_right = self.comb_iter_4_right(x_left)
         x_comb_iter_4 = x_comb_iter_4_left + x_comb_iter_4_right
 
-        x_out = torch.cat(
+        return torch.cat(
             [x_comb_iter_1, x_comb_iter_2, x_comb_iter_3, x_comb_iter_4], 1
         )
-        return x_out
 
 
 class FirstCell(nn.Module):
@@ -565,13 +563,17 @@ class FirstCell(nn.Module):
         x_comb_iter_4_left = self.comb_iter_4_left(x_right)
         x_comb_iter_4 = x_comb_iter_4_left + x_right
 
-        x_out = torch.cat(
+        return torch.cat(
             [
-                x_left, x_comb_iter_0, x_comb_iter_1, x_comb_iter_2,
-                x_comb_iter_3, x_comb_iter_4
-            ], 1
+                x_left,
+                x_comb_iter_0,
+                x_comb_iter_1,
+                x_comb_iter_2,
+                x_comb_iter_3,
+                x_comb_iter_4,
+            ],
+            1,
         )
-        return x_out
 
 
 class NormalCell(nn.Module):
@@ -662,13 +664,17 @@ class NormalCell(nn.Module):
         x_comb_iter_4_left = self.comb_iter_4_left(x_right)
         x_comb_iter_4 = x_comb_iter_4_left + x_right
 
-        x_out = torch.cat(
+        return torch.cat(
             [
-                x_left, x_comb_iter_0, x_comb_iter_1, x_comb_iter_2,
-                x_comb_iter_3, x_comb_iter_4
-            ], 1
+                x_left,
+                x_comb_iter_0,
+                x_comb_iter_1,
+                x_comb_iter_2,
+                x_comb_iter_3,
+                x_comb_iter_4,
+            ],
+            1,
         )
-        return x_out
 
 
 class ReductionCell0(nn.Module):
@@ -757,10 +763,9 @@ class ReductionCell0(nn.Module):
         x_comb_iter_4_right = self.comb_iter_4_right(x_right)
         x_comb_iter_4 = x_comb_iter_4_left + x_comb_iter_4_right
 
-        x_out = torch.cat(
+        return torch.cat(
             [x_comb_iter_1, x_comb_iter_2, x_comb_iter_3, x_comb_iter_4], 1
         )
-        return x_out
 
 
 class ReductionCell1(nn.Module):
@@ -882,10 +887,9 @@ class ReductionCell1(nn.Module):
         x_comb_iter_4_right = self.comb_iter_4_right(x_right)
         x_comb_iter_4 = x_comb_iter_4_left + x_comb_iter_4_right
 
-        x_out = torch.cat(
+        return torch.cat(
             [x_comb_iter_1, x_comb_iter_2, x_comb_iter_3, x_comb_iter_4], 1
         )
-        return x_out
 
 
 class NASNetAMobile(nn.Module):
@@ -1046,10 +1050,7 @@ class NASNetAMobile(nn.Module):
                 )
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
@@ -1104,7 +1105,7 @@ class NASNetAMobile(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError('Unsupported loss: {}'.format(self.loss))
+            raise KeyError(f'Unsupported loss: {self.loss}')
 
 
 def init_pretrained_weights(model, model_url):

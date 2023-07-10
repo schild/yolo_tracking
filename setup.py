@@ -15,8 +15,10 @@ REQUIREMENTS = [f'{x.name}{x.specifier}' for x in pkg.parse_requirements((PARENT
 
 def get_version():
     file = PARENT / 'boxmot/__init__.py'
-    version = re.search(r'__version__\s*=\s*[\'\"](.+?)[\'\"]', file.read_text(encoding='utf-8')).group(1)
-    return version
+    return re.search(
+        r'__version__\s*=\s*[\'\"](.+?)[\'\"]',
+        file.read_text(encoding='utf-8'),
+    )[1]
 
 
 setup(

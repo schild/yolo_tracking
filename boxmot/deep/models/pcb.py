@@ -109,12 +109,11 @@ class DimReduceLayer(nn.Module):
 
     def __init__(self, in_channels, out_channels, nonlinear):
         super(DimReduceLayer, self).__init__()
-        layers = []
-        layers.append(
+        layers = [
             nn.Conv2d(
                 in_channels, out_channels, 1, stride=1, padding=0, bias=False
             )
-        )
+        ]
         layers.append(nn.BatchNorm2d(out_channels))
 
         if nonlinear == 'relu':
@@ -199,12 +198,9 @@ class PCB(nn.Module):
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers = [block(self.inplanes, planes, stride, downsample)]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes))
-
+        layers.extend(block(self.inplanes, planes) for _ in range(1, blocks))
         return nn.Sequential(*layers)
 
     def _init_params(self):
@@ -215,10 +211,7 @@ class PCB(nn.Module):
                 )
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
@@ -261,7 +254,7 @@ class PCB(nn.Module):
             v_g = F.normalize(v_g, p=2, dim=1)
             return y, v_g.view(v_g.size(0), -1)
         else:
-            raise KeyError('Unsupported loss: {}'.format(self.loss))
+            raise KeyError(f'Unsupported loss: {self.loss}')
 
 
 def init_pretrained_weights(model, model_url):

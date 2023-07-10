@@ -155,15 +155,15 @@ class ShuffleNetV2(nn.Module):
 
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        stage_names = ['stage{}'.format(i) for i in [2, 3, 4]]
+        stage_names = [f'stage{i}' for i in [2, 3, 4]]
         for name, repeats, output_channels in zip(
             stage_names, stages_repeats, self._stage_out_channels[1:]
         ):
             seq = [InvertedResidual(input_channels, output_channels, 2)]
-            for i in range(repeats - 1):
-                seq.append(
-                    InvertedResidual(output_channels, output_channels, 1)
-                )
+            seq.extend(
+                InvertedResidual(output_channels, output_channels, 1)
+                for _ in range(repeats - 1)
+            )
             setattr(self, name, nn.Sequential(*seq))
             input_channels = output_channels
 
@@ -201,7 +201,7 @@ class ShuffleNetV2(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError("Unsupported loss: {}".format(self.loss))
+            raise KeyError(f"Unsupported loss: {self.loss}")
 
 
 def init_pretrained_weights(model, model_url):

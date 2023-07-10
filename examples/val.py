@@ -71,21 +71,20 @@ class Evaluator:
         Returns:
             None
         """
-        url = 'https://motchallenge.net/data/' + benchmark + '.zip'
-        zip_dst = val_tools_path / (benchmark + '.zip')
+        url = f'https://motchallenge.net/data/{benchmark}.zip'
+        zip_dst = val_tools_path / f'{benchmark}.zip'
         if not (val_tools_path / 'data' / benchmark).exists():
             os.system(f"curl -# -L {url} -o {zip_dst} -# --retry 3 -C -")
             LOGGER.info(f'{benchmark}.zip downloaded sucessfully')
 
             try:
-                with zipfile.ZipFile((val_tools_path / (benchmark + '.zip')), 'r') as zip_file:
-                    if self.opt.benchmark == 'MOT16':
-                        for member in tqdm(zip_file.namelist(), desc=f'Extracting {benchmark}'):
+                with zipfile.ZipFile(val_tools_path / f'{benchmark}.zip', 'r') as zip_file:
+                    for member in tqdm(zip_file.namelist(), desc=f'Extracting {benchmark}'):
+                        if self.opt.benchmark == 'MOT16':
                             member_path = val_tools_path / 'data' / 'MOT16' / member
                             if not member_path.exists() and not member_path.is_file():
                                 zip_file.extract(member, val_tools_path / 'data' / 'MOT16')
-                    else:
-                        for member in tqdm(zip_file.namelist(), desc=f'Extracting {benchmark}'):
+                        else:
                             member_path = val_tools_path / 'data' / member
                             if not member_path.exists() and not member_path.is_file():
                                 zip_file.extract(member, val_tools_path / 'data')
@@ -144,11 +143,10 @@ class Evaluator:
         # extend devices to as many sequences are available
         if any(isinstance(i, int) for i in opt.device) and len(opt.device) > 1:
             devices = opt.device
-            for a in range(0, len(opt.device) % len(seq_paths)):
+            for _ in range(0, len(opt.device) % len(seq_paths)):
                 opt.device.extend(devices)
             opt.device = opt.device[:len(seq_paths)]
-        free_devices = opt.device * opt.processes_per_device
-        return free_devices
+        return opt.device * opt.processes_per_device
 
     def eval(self, opt, seq_paths, save_dir, MOT_results_folder, val_tools_path, gt_folder, free_devices):
         """Benchmark evaluation
@@ -176,7 +174,7 @@ class Evaluator:
                 # spawn one subprocess per GPU in increasing order.
                 # When max devices are reached start at 0 again
                 if i > 0 and len(free_devices) == 0:
-                    if len(processes) == 0:
+                    if not processes:
                         raise IndexError("No active processes and no devices available.")
 
                     # Wait for oldest process to finish so we can get a free device
@@ -191,7 +189,7 @@ class Evaluator:
                 if not dst_seq_path.is_dir():
                     src_seq_path = seq_path
                     shutil.move(str(src_seq_path), str(dst_seq_path))
-                
+
                 LOGGER.info(f"Staring evaluation process on {dst_seq_path}")
                 p = subprocess.Popen(
                     args=[
@@ -217,7 +215,7 @@ class Evaluator:
                 processes.append(p)
                 # Wait for the subprocess to complete and capture output
                 stdout, stderr = p.communicate()
-                
+
                 # Check the return code of the subprocess
                 if p.returncode != 0:
                     LOGGER.error(stderr)
@@ -267,12 +265,13 @@ class Evaluator:
         with open(save_dir / 'MOT_results.txt', 'w') as f:
             f.write(stdout)
         # copy tracking method config to exp folder
-        tracking_config = \
-            ROOT /\
-            'boxmot' /\
-            opt.tracking_method /\
-            'configs' /\
-            (opt.tracking_method + '.yaml')
+        tracking_config = (
+            ROOT
+            / 'boxmot'
+            / opt.tracking_method
+            / 'configs'
+            / f'{opt.tracking_method}.yaml'
+        )
         shutil.copyfile(tracking_config, save_dir / Path(tracking_config).name)
 
         return stdout
@@ -291,7 +290,7 @@ class Evaluator:
         # robust way of getting first ints/float in string
         combined_results = [float(re.findall("[-+]?(?:\d*\.*\d+)", f)[0]) for f in combined_results]
         # pack everything in dict
-        combined_results = {key: value for key, value in zip(['HOTA', 'MOTA', 'IDF1'], combined_results)}
+        combined_results = dict(zip(['HOTA', 'MOTA', 'IDF1'], combined_results))
         return combined_results
 
     def run(self, opt):

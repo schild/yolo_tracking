@@ -31,13 +31,14 @@ from boxmot.utils import EXAMPLES
 def on_predict_start(predictor):
     predictor.trackers = []
     predictor.tracker_outputs = [None] * predictor.dataset.bs
-    predictor.args.tracking_config = \
-        ROOT /\
-        'boxmot' /\
-        opt.tracking_method /\
-        'configs' /\
-        (opt.tracking_method + '.yaml')
-    for i in range(predictor.dataset.bs):
+    predictor.args.tracking_config = (
+        ROOT
+        / 'boxmot'
+        / opt.tracking_method
+        / 'configs'
+        / f'{opt.tracking_method}.yaml'
+    )
+    for _ in range(predictor.dataset.bs):
         tracker = create_tracker(
             predictor.args.tracking_method,
             predictor.args.tracking_config,
@@ -54,7 +55,7 @@ def run(args):
     model = YOLO(args['yolo_model'] if 'v8' in str(args['yolo_model']) else 'yolov8n')
     overrides = model.overrides.copy()
     model.predictor = TASK_MAP[model.task][3](overrides=overrides, _callbacks=model.callbacks)
-    
+
     # extract task predictor
     predictor = model.predictor
 
@@ -69,10 +70,10 @@ def run(args):
     if not predictor.model:
         predictor.setup_model(model=model.model, verbose=False)
     predictor.setup_source(predictor.args.source)
-    
+
     predictor.args.imgsz = check_imgsz(predictor.args.imgsz, stride=model.model.stride, min_dim=2)  # check image size
     predictor.save_dir = increment_path(Path(predictor.args.project) / predictor.args.name, exist_ok=predictor.args.exist_ok)
-    
+
     # Check if save_dir/ label file exists
     if predictor.args.save or predictor.args.save_txt:
         (predictor.save_dir / 'labels' if predictor.args.save_txt else predictor.save_dir).mkdir(parents=True, exist_ok=True)
@@ -95,7 +96,7 @@ def run(args):
 
         n = len(im0s)
         predictor.results = [None] * n
-        
+
         # Preprocess
         with predictor.profilers[0]:
             im = predictor.preprocess(im0s)
@@ -108,7 +109,7 @@ def run(args):
         with predictor.profilers[2]:
             predictor.results = model.postprocess(path, preds, im, im0s, predictor)
         predictor.run_callbacks('on_predict_postprocess_end')
-        
+
         # Visualize, save, write results
         n = len(im0s)
         for i in range(n):
@@ -117,7 +118,7 @@ def run(args):
                 continue
             p, im0 = path[i], im0s[i].copy()
             p = Path(p)
-            
+
             with predictor.profilers[3]:
                 # get raw bboxes tensor
                 dets = predictor.results[i].boxes.data
@@ -134,20 +135,20 @@ def run(args):
             model.filter_results(i, predictor)
             # overwrite bbox results with tracker predictions
             model.overwrite_results(i, im0.shape[:2], predictor)
-            
-            # write inference results to a file or directory   
+
+            # write inference results to a file or directory
             if predictor.args.verbose or predictor.args.save or predictor.args.save_txt or predictor.args.show or predictor.args.save_id_crops:
                 
                 s += predictor.write_results(i, predictor.results, (p, im, im0))
                 predictor.txt_path = Path(predictor.txt_path)
-                
+
                 # write MOT specific results
                 if predictor.args.source.endswith(VID_FORMATS):
                     predictor.MOT_txt_path = predictor.txt_path.parent / p.stem
                 else:
                     # append folder name containing current img
                     predictor.MOT_txt_path = predictor.txt_path.parent / p.parent.name
-                    
+
                 if predictor.tracker_outputs[i].size != 0 and predictor.args.save_mot:
                     write_MOT_results(
                         predictor.MOT_txt_path,
@@ -156,14 +157,14 @@ def run(args):
                         i,
                     )
 
-                if predictor.args.save_id_crops:
-                    for d in predictor.results[i].boxes:
-                        save_one_box(
-                            d.xyxy,
-                            im0.copy(),
-                            file=predictor.save_dir / 'crops' / str(int(d.cls.cpu().numpy().item())) / str(int(d.id.cpu().numpy().item())) / f'{p.stem}.jpg',
-                            BGR=True
-                        )
+            if predictor.args.save_id_crops:
+                for d in predictor.results[i].boxes:
+                    save_one_box(
+                        d.xyxy,
+                        im0.copy(),
+                        file=predictor.save_dir / 'crops' / str(int(d.cls.cpu().numpy().item())) / str(int(d.id.cpu().numpy().item())) / f'{p.stem}.jpg',
+                        BGR=True
+                    )
 
             # display an image in a window using OpenCV imshow()
             if predictor.args.show and predictor.plotted_img is not None:
@@ -201,7 +202,7 @@ def parse_opt():
     parser.add_argument('--yolo-model', type=Path, default=WEIGHTS / 'yolov8n.pt', help='model.pt path(s)')
     parser.add_argument('--reid-model', type=Path, default=WEIGHTS / 'mobilenetv2_x1_4_dukemtmcreid.pt')
     parser.add_argument('--tracking-method', type=str, default='deepocsort', help='deepocsort, botsort, strongsort, ocsort, bytetrack')
-    parser.add_argument('--source', type=str, default='0', help='file/dir/URL/glob, 0 for webcam')  
+    parser.add_argument('--source', type=str, default='0', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf', type=float, default=0.5, help='confidence threshold')
     parser.add_argument('--iou', type=float, default=0.7, help='intersection over union (IoU) threshold for NMS')
@@ -221,9 +222,8 @@ def parse_opt():
     parser.add_argument('--save-id-crops', action='store_true', help='save each crop to its respective id folder')
     parser.add_argument('--save-mot', action='store_true', help='save tracking results in a single txt file')
     parser.add_argument('--line-width', default=None, type=int, help='The line width of the bounding boxes. If None, it is scaled to the image size.')
-    
-    opt = parser.parse_args()
-    return opt
+
+    return parser.parse_args()
 
 
 def main(opt):

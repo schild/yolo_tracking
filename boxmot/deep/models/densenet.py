@@ -201,15 +201,17 @@ class DenseNet(nn.Module):
 
         assert isinstance(
             fc_dims, (list, tuple)
-        ), 'fc_dims must be either list or tuple, but got {}'.format(
-            type(fc_dims)
-        )
+        ), f'fc_dims must be either list or tuple, but got {type(fc_dims)}'
 
         layers = []
         for dim in fc_dims:
-            layers.append(nn.Linear(input_dim, dim))
-            layers.append(nn.BatchNorm1d(dim))
-            layers.append(nn.ReLU(inplace=True))
+            layers.extend(
+                (
+                    nn.Linear(input_dim, dim),
+                    nn.BatchNorm1d(dim),
+                    nn.ReLU(inplace=True),
+                )
+            )
             if dropout_p is not None:
                 layers.append(nn.Dropout(p=dropout_p))
             input_dim = dim
@@ -226,10 +228,7 @@ class DenseNet(nn.Module):
                 )
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
@@ -256,7 +255,7 @@ class DenseNet(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError('Unsupported loss: {}'.format(self.loss))
+            raise KeyError(f'Unsupported loss: {self.loss}')
 
 
 def init_pretrained_weights(model, model_url):
@@ -274,9 +273,8 @@ def init_pretrained_weights(model, model_url):
         r'^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.(?:weight|bias|running_mean|running_var))$'
     )
     for key in list(pretrain_dict.keys()):
-        res = pattern.match(key)
-        if res:
-            new_key = res.group(1) + res.group(2)
+        if res := pattern.match(key):
+            new_key = res[1] + res[2]
             pretrain_dict[new_key] = pretrain_dict[key]
             del pretrain_dict[key]
 

@@ -62,9 +62,7 @@ class ReIDDetectMultiBackend(nn.Module):
             model_url = get_model_url(w)
             if not file_exists(w) and model_url is not None:
                 gdown.download(model_url, str(w), quiet=False)
-            elif file_exists(w):
-                pass
-            else:
+            elif not file_exists(w):
                 LOGGER.error(f'No URL associated to the chosen StrongSORT weights ({w}). Choose between:')
                 show_downloadeable_models()
                 exit()
@@ -137,7 +135,7 @@ class ReIDDetectMultiBackend(nn.Module):
                 batch_size = batch_dim.get_length()
             self.executable_network = ie.compile_model(network, device_name="CPU")  # device_name="MYRIAD" for Intel NCS2
             self.output_layer = next(iter(self.executable_network.outputs))
-        
+
         elif self.tflite:
             LOGGER.info(f'Loading {w} for TensorFlow Lite inference...')
             try:  # https://coral.ai/docs/edgetpu/tflite-python/#update-existing-tf-lite-code-for-the-edge-tpu
@@ -150,11 +148,11 @@ class ReIDDetectMultiBackend(nn.Module):
             # Get input and output tensors.
             self.input_details = self.interpreter.get_input_details()
             self.output_details = self.interpreter.get_output_details()
-            
+
             # Test model on random input data.
             input_data = np.array(np.random.random_sample((1,256,128,3)), dtype=np.float32)
             self.interpreter.set_tensor(self.input_details[0]['index'], input_data)
-            
+
             self.interpreter.invoke()
 
             # The function `get_tensor()` returns a copy of the tensor data.
@@ -170,8 +168,7 @@ class ReIDDetectMultiBackend(nn.Module):
         from .reid_export import export_formats
         sf = list(export_formats().Suffix)  # export suffixes
         check_suffix(p, sf)  # checks
-        types = [s in Path(p).name for s in sf]
-        return types
+        return [s in Path(p).name for s in sf]
 
     def _preprocess(self, im_batch):
 
@@ -206,7 +203,7 @@ class ReIDDetectMultiBackend(nn.Module):
             im_batch = im_batch.cpu().numpy()  # torch to numpy
             features = self.session.run([self.session.get_outputs()[0].name], {self.session.get_inputs()[0].name: im_batch})[0]
         elif self.engine:  # TensorRT
-            if True and im_batch.shape != self.bindings['images'].shape:
+            if im_batch.shape != self.bindings['images'].shape:
                 i_in, i_out = (self.model_.get_binding_index(x) for x in ('images', 'output'))
                 self.context.set_binding_shape(i_in, im_batch.shape)  # reshape if dynamic
                 self.bindings['images'] = self.bindings['images']._replace(shape=im_batch.shape)

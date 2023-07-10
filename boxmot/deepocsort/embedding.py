@@ -44,10 +44,7 @@ class EmbeddingComputer:
             self.initialize_model()
 
         # Make sure bbox is within image frame
-        if is_numpy:
-            h, w = img.shape[:2]
-        else:
-            h, w = img.shape[2:]
+        h, w = img.shape[:2] if is_numpy else img.shape[2:]
         results = np.round(bbox).astype(np.int32)
         results[:, 0] = results[:, 0].clip(0, w)
         results[:, 1] = results[:, 1].clip(0, h)

@@ -163,26 +163,24 @@ class Track:
             dst = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
 
         # make the imgs smaller to speed up
-        if scale is not None:
-            if isinstance(scale, float) or isinstance(scale, int):
-                if scale != 1:
-                    src_r = cv2.resize(src, (0, 0), fx = scale, fy = scale,interpolation =  cv2.INTER_LINEAR)
-                    dst_r = cv2.resize(dst, (0, 0), fx = scale, fy = scale,interpolation =  cv2.INTER_LINEAR)
-                    scale = [scale, scale]
-                else:
-                    src_r, dst_r = src, dst
-                    scale = None
-            else:
-                if scale[0] != src.shape[1] and scale[1] != src.shape[0]:
-                    src_r = cv2.resize(src, (scale[0], scale[1]), interpolation = cv2.INTER_LINEAR)
-                    dst_r = cv2.resize(dst, (scale[0], scale[1]), interpolation=cv2.INTER_LINEAR)
-                    scale = [scale[0] / src.shape[1], scale[1] / src.shape[0]]
-                else:
-                    src_r, dst_r = src, dst
-                    scale = None
-        else:
+        if scale is None:
             src_r, dst_r = src, dst
 
+        elif isinstance(scale, (float, int)):
+            if scale == 1:
+                src_r, dst_r = src, dst
+                scale = None
+            else:
+                src_r = cv2.resize(src, (0, 0), fx = scale, fy = scale,interpolation =  cv2.INTER_LINEAR)
+                dst_r = cv2.resize(dst, (0, 0), fx = scale, fy = scale,interpolation =  cv2.INTER_LINEAR)
+                scale = [scale, scale]
+        elif scale[0] != src.shape[1] and scale[1] != src.shape[0]:
+            src_r = cv2.resize(src, (scale[0], scale[1]), interpolation = cv2.INTER_LINEAR)
+            dst_r = cv2.resize(dst, (scale[0], scale[1]), interpolation=cv2.INTER_LINEAR)
+            scale = [scale[0] / src.shape[1], scale[1] / src.shape[0]]
+        else:
+            src_r, dst_r = src, dst
+            scale = None
         # Define 2x3 or 3x3 matrices and initialize the matrix to identity
         if warp_mode == cv2.MOTION_HOMOGRAPHY :
             warp_matrix = np.eye(3, 3, dtype=np.float32)
@@ -198,31 +196,30 @@ class Track:
         except cv2.error as e:
             print('ecc transform failed')
             return None, None
-        
+
         if scale is not None:
             warp_matrix[0, 2] = warp_matrix[0, 2] / scale[0]
             warp_matrix[1, 2] = warp_matrix[1, 2] / scale[1]
 
-        if align:
-            sz = src.shape
-            if warp_mode == cv2.MOTION_HOMOGRAPHY:
-                # Use warpPerspective for Homography
-                src_aligned = cv2.warpPerspective(src, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR)
-            else :
-                # Use warpAffine for Translation, Euclidean and Affine
-                src_aligned = cv2.warpAffine(src, warp_matrix, (sz[1],sz[0]), flags=cv2.INTER_LINEAR)
-            return warp_matrix, src_aligned
-        else:
+        if not align:
             return warp_matrix, None
+        sz = src.shape
+        src_aligned = (
+            cv2.warpPerspective(
+                src, warp_matrix, (sz[1], sz[0]), flags=cv2.INTER_LINEAR
+            )
+            if warp_mode == cv2.MOTION_HOMOGRAPHY
+            else cv2.warpAffine(
+                src, warp_matrix, (sz[1], sz[0]), flags=cv2.INTER_LINEAR
+            )
+        )
+        return warp_matrix, src_aligned
 
 
     def get_matrix(self, matrix):
         eye = np.eye(3)
         dist = np.linalg.norm(eye - matrix)
-        if dist < 100:
-            return matrix
-        else:
-            return eye
+        return matrix if dist < 100 else eye
 
     def camera_update(self, previous_frame, next_frame):
         warp_matrix, src_aligned = self.ECC(previous_frame, next_frame)
@@ -298,9 +295,10 @@ class Track:
     def mark_missed(self):
         """Mark this track as missed (no association at the current time step).
         """
-        if self.state == TrackState.Tentative:
-            self.state = TrackState.Deleted
-        elif self.time_since_update > self._max_age:
+        if (
+            self.state == TrackState.Tentative
+            or self.time_since_update > self._max_age
+        ):
             self.state = TrackState.Deleted
 
     def is_tentative(self):

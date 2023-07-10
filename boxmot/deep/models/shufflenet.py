@@ -167,7 +167,7 @@ class ShuffleNet(nn.Module):
         elif self.loss == 'triplet':
             return y, x
         else:
-            raise KeyError('Unsupported loss: {}'.format(self.loss))
+            raise KeyError(f'Unsupported loss: {self.loss}')
 
 
 def init_pretrained_weights(model, model_url):
@@ -192,7 +192,6 @@ def shufflenet(num_classes, loss='softmax', pretrained=True, **kwargs):
         # init_pretrained_weights(model, model_urls['imagenet'])
         import warnings
         warnings.warn(
-            'The imagenet pretrained weights need to be manually downloaded from {}'
-            .format(model_urls['imagenet'])
+            f"The imagenet pretrained weights need to be manually downloaded from {model_urls['imagenet']}"
         )
     return model

@@ -83,43 +83,37 @@ class Block(nn.Module):
 
         filters = in_filters
         if grow_first:
-            rep.append(self.relu)
-            rep.append(
-                SeparableConv2d(
-                    in_filters,
-                    out_filters,
-                    3,
-                    stride=1,
-                    padding=1,
-                    bias=False
+            rep.extend(
+                (
+                    self.relu,
+                    SeparableConv2d(
+                        in_filters, out_filters, 3, stride=1, padding=1, bias=False
+                    ),
+                    nn.BatchNorm2d(out_filters),
                 )
             )
-            rep.append(nn.BatchNorm2d(out_filters))
             filters = out_filters
 
-        for i in range(reps - 1):
-            rep.append(self.relu)
-            rep.append(
-                SeparableConv2d(
-                    filters, filters, 3, stride=1, padding=1, bias=False
+        for _ in range(reps - 1):
+            rep.extend(
+                (
+                    self.relu,
+                    SeparableConv2d(
+                        filters, filters, 3, stride=1, padding=1, bias=False
+                    ),
+                    nn.BatchNorm2d(filters),
                 )
             )
-            rep.append(nn.BatchNorm2d(filters))
-
         if not grow_first:
-            rep.append(self.relu)
-            rep.append(
-                SeparableConv2d(
-                    in_filters,
-                    out_filters,
-                    3,
-                    stride=1,
-                    padding=1,
-                    bias=False
+            rep.extend(
+                (
+                    self.relu,
+                    SeparableConv2d(
+                        in_filters, out_filters, 3, stride=1, padding=1, bias=False
+                    ),
+                    nn.BatchNorm2d(out_filters),
                 )
             )
-            rep.append(nn.BatchNorm2d(out_filters))
-
         if not start_with_relu:
             rep = rep[1:]
         else:
@@ -232,15 +226,17 @@ class Xception(nn.Module):
 
         assert isinstance(
             fc_dims, (list, tuple)
-        ), 'fc_dims must be either list or tuple, but got {}'.format(
-            type(fc_dims)
-        )
+        ), f'fc_dims must be either list or tuple, but got {type(fc_dims)}'
 
         layers = []
         for dim in fc_dims:
-            layers.append(nn.Linear(input_dim, dim))
-            layers.append(nn.BatchNorm1d(dim))
-            layers.append(nn.ReLU(inplace=True))
+            layers.extend(
+                (
+                    nn.Linear(input_dim, dim),
+                    nn.BatchNorm1d(dim),
+                    nn.ReLU(inplace=True),
+                )
+            )
             if dropout_p is not None:
                 layers.append(nn.Dropout(p=dropout_p))
             input_dim = dim
@@ -257,10 +253,7 @@ class Xception(nn.Module):
                 )
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
@@ -317,7 +310,7 @@ class Xception(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError('Unsupported loss: {}'.format(self.loss))
+            raise KeyError(f'Unsupported loss: {self.loss}')
 
 
 def init_pretrained_weights(model, model_url):

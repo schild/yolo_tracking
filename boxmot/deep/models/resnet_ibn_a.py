@@ -74,8 +74,7 @@ class IBN(nn.Module):
         split = torch.split(x, self.half, 1)
         out1 = self.IN(split[0].contiguous())
         out2 = self.BN(split[1].contiguous())
-        out = torch.cat((out1, out2), 1)
-        return out
+        return torch.cat((out1, out2), 1)
 
 
 class Bottleneck(nn.Module):
@@ -84,10 +83,7 @@ class Bottleneck(nn.Module):
     def __init__(self, inplanes, planes, ibn=False, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
-        if ibn:
-            self.bn1 = IBN(planes)
-        else:
-            self.bn1 = nn.BatchNorm2d(planes)
+        self.bn1 = IBN(planes) if ibn else nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(
             planes,
             planes,
@@ -173,10 +169,7 @@ class ResNet(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-            elif isinstance(m, nn.InstanceNorm2d):
+            elif isinstance(m, (nn.BatchNorm2d, nn.InstanceNorm2d)):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
@@ -194,15 +187,10 @@ class ResNet(nn.Module):
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
-        layers = []
-        ibn = True
-        if planes == 512:
-            ibn = False
-        layers.append(block(self.inplanes, planes, ibn, stride, downsample))
+        ibn = planes != 512
+        layers = [block(self.inplanes, planes, ibn, stride, downsample)]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, ibn))
-
+        layers.extend(block(self.inplanes, planes, ibn) for _ in range(1, blocks))
         return nn.Sequential(*layers)
 
     def _construct_fc_layer(self, fc_dims, input_dim, dropout_p=None):
@@ -219,15 +207,17 @@ class ResNet(nn.Module):
 
         assert isinstance(
             fc_dims, (list, tuple)
-        ), 'fc_dims must be either list or tuple, but got {}'.format(
-            type(fc_dims)
-        )
+        ), f'fc_dims must be either list or tuple, but got {type(fc_dims)}'
 
         layers = []
         for dim in fc_dims:
-            layers.append(nn.Linear(input_dim, dim))
-            layers.append(nn.BatchNorm1d(dim))
-            layers.append(nn.ReLU(inplace=True))
+            layers.extend(
+                (
+                    nn.Linear(input_dim, dim),
+                    nn.BatchNorm1d(dim),
+                    nn.ReLU(inplace=True),
+                )
+            )
             if dropout_p is not None:
                 layers.append(nn.Dropout(p=dropout_p))
             input_dim = dim
@@ -261,7 +251,7 @@ class ResNet(nn.Module):
         elif self.loss == 'triplet':
             return y, v
         else:
-            raise KeyError("Unsupported loss: {}".format(self.loss))
+            raise KeyError(f"Unsupported loss: {self.loss}")
 
 
 def init_pretrained_weights(model, model_url):

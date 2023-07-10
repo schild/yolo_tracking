@@ -178,7 +178,7 @@ def export_engine(model, im, file, half, dynamic, simplify, workspace=4, verbose
 
         inputs = [network.get_input(i) for i in range(network.num_inputs)]
         outputs = [network.get_output(i) for i in range(network.num_outputs)]
-        logger.info(f'Network Description:')
+        logger.info('Network Description:')
         for inp in inputs:
             logger.info(f'\tinput "{inp.name}" with shape {inp.shape} and dtype {inp.dtype}')
         for out in outputs:
@@ -186,7 +186,9 @@ def export_engine(model, im, file, half, dynamic, simplify, workspace=4, verbose
 
         if dynamic:
             if im.shape[0] <= 1:
-                logger.warning(f"WARNING: --dynamic model requires maximum --batch-size argument")
+                logger.warning(
+                    "WARNING: --dynamic model requires maximum --batch-size argument"
+                )
             profile = builder.create_optimization_profile()
             for inp in inputs:
                 if half:

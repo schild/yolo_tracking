@@ -128,17 +128,11 @@ def get_model_url(model):
 
 
 def is_model_in_model_types(model):
-    if model.name in __model_types:
-        return True
-    else:
-        return False
+    return model.name in __model_types
 
 
 def get_model_name(model):
-    for x in __model_types:
-        if x in model.name:
-            return x
-    return None
+    return next((x for x in __model_types if x in model.name), None)
 
 
 def download_url(url, dst):

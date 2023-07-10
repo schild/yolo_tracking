@@ -28,8 +28,7 @@ class BatchRandomErasing(nn.Module):
             if random.uniform(0, 1) > self.probability:
                 return img
 
-            for attempt in range(100):
-
+            for _ in range(100):
                 area = img.size()[2] * img.size()[3]
 
                 target_area = random.uniform(self.sl, self.sh) * area
@@ -141,10 +140,7 @@ class BatchFeatureErase_Top(nn.Module):
             x = self.drop_batch_drop_basic(features, visdrop=visdrop)
         if visdrop:
             return x  # x is dropmask
-        if bottleneck_features:
-            return x, features
-        else:
-            return x
+        return (x, features) if bottleneck_features else x
 
 
 class SE_Module(Module):

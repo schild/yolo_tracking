@@ -35,16 +35,17 @@ class STrack(BaseTrack):
 
     @staticmethod
     def multi_predict(stracks):
-        if len(stracks) > 0:
-            multi_mean = np.asarray([st.mean.copy() for st in stracks])
-            multi_covariance = np.asarray([st.covariance for st in stracks])
-            for i, st in enumerate(stracks):
-                if st.state != TrackState.Tracked:
-                    multi_mean[i][7] = 0
-            multi_mean, multi_covariance = STrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
-            for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
-                stracks[i].mean = mean
-                stracks[i].covariance = cov
+        if len(stracks) <= 0:
+            return
+        multi_mean = np.asarray([st.mean.copy() for st in stracks])
+        multi_covariance = np.asarray([st.covariance for st in stracks])
+        for i, st in enumerate(stracks):
+            if st.state != TrackState.Tracked:
+                multi_mean[i][7] = 0
+        multi_mean, multi_covariance = STrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
+        for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
+            stracks[i].mean = mean
+            stracks[i].covariance = cov
 
     def activate(self, kalman_filter, frame_id):
         """Start a new tracklet"""
@@ -145,7 +146,7 @@ class STrack(BaseTrack):
         return ret
 
     def __repr__(self):
-        return 'OT_{}_({}-{})'.format(self.track_id, self.start_frame, self.end_frame)
+        return f'OT_{self.track_id}_({self.start_frame}-{self.end_frame})'
 
 
 class BYTETracker(object):
@@ -167,8 +168,12 @@ class BYTETracker(object):
     def update(self, dets, _):
 
         assert isinstance(dets, np.ndarray), f"Unsupported 'dets' input format '{type(dets)}', valid format is np.ndarray"
-        assert len(dets.shape) == 2, f"Unsupported 'dets' dimensions, valid number of dimensions is two"
-        assert dets.shape[1] == 6, f"Unsupported 'dets' 2nd dimension lenght, valid lenghts is 6"
+        assert (
+            len(dets.shape) == 2
+        ), "Unsupported 'dets' dimensions, valid number of dimensions is two"
+        assert (
+            dets.shape[1] == 6
+        ), "Unsupported 'dets' 2nd dimension lenght, valid lenghts is 6"
 
         self.frame_id += 1
         activated_starcks = []
@@ -180,7 +185,7 @@ class BYTETracker(object):
         xywh = xyxy2xywh(xyxys)
         confs = dets[:, 4]
         clss = dets[:, 5]
-        
+
         classes = clss
         xyxys = xyxys
         confs = confs
@@ -190,16 +195,16 @@ class BYTETracker(object):
         inds_high = confs < self.track_thresh
 
         inds_second = np.logical_and(inds_low, inds_high)
-        
+
         dets_second = xywh[inds_second]
         dets = xywh[remain_inds]
-        
+
         scores_keep = confs[remain_inds]
         scores_second = confs[inds_second]
-        
+
         clss_keep = classes[remain_inds]
         clss_second = classes[inds_second]
-        
+
 
         if len(dets) > 0:
             '''Detections'''
@@ -230,7 +235,7 @@ class BYTETracker(object):
             track = strack_pool[itracked]
             det = detections[idet]
             if track.state == TrackState.Tracked:
-                track.update(detections[idet], self.frame_id)
+                track.update(det, self.frame_id)
                 activated_starcks.append(track)
             else:
                 track.re_activate(det, self.frame_id, new_id=False)
@@ -258,7 +263,7 @@ class BYTETracker(object):
 
         for it in u_track:
             track = r_tracked_stracks[it]
-            if not track.state == TrackState.Lost:
+            if track.state != TrackState.Lost:
                 track.mark_lost()
                 lost_stracks.append(track)
 
@@ -310,12 +315,9 @@ class BYTETracker(object):
             xyxy = xywh2xyxy(tlwh)
             xyxy = np.squeeze(xyxy, axis=0)
             output.extend(xyxy)
-            output.append(tid)
-            output.append(t.score)
-            output.append(t.cls)
+            output.extend((tid, t.score, t.cls))
             outputs.append(output)
-        outputs = np.asarray(outputs)
-        return outputs
+        return np.asarray(outputs)
 #track_id, class_id, conf
 
 def joint_stracks(tlista, tlistb):
@@ -333,9 +335,7 @@ def joint_stracks(tlista, tlistb):
 
 
 def sub_stracks(tlista, tlistb):
-    stracks = {}
-    for t in tlista:
-        stracks[t.track_id] = t
+    stracks = {t.track_id: t for t in tlista}
     for t in tlistb:
         tid = t.track_id
         if stracks.get(tid, 0):
@@ -346,7 +346,7 @@ def sub_stracks(tlista, tlistb):
 def remove_duplicate_stracks(stracksa, stracksb):
     pdist = iou_distance(stracksa, stracksb)
     pairs = np.where(pdist < 0.15)
-    dupa, dupb = list(), list()
+    dupa, dupb = [], []
     for p, q in zip(*pairs):
         timep = stracksa[p].frame_id - stracksa[p].start_frame
         timeq = stracksb[q].frame_id - stracksb[q].start_frame
@@ -354,6 +354,6 @@ def remove_duplicate_stracks(stracksa, stracksb):
             dupb.append(q)
         else:
             dupa.append(p)
-    resa = [t for i, t in enumerate(stracksa) if not i in dupa]
-    resb = [t for i, t in enumerate(stracksb) if not i in dupb]
+    resa = [t for i, t in enumerate(stracksa) if i not in dupa]
+    resb = [t for i, t in enumerate(stracksb) if i not in dupb]
     return resa, resb
